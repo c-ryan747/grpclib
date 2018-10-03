@@ -1,5 +1,7 @@
 import http
 
+from typing import Generic
+
 try:
     import ssl
 except ImportError:
@@ -10,7 +12,7 @@ from h2.config import H2Configuration
 from .utils import Wrapper, DeadlineWrapper
 from .const import Status
 from .stream import send_message, recv_message
-from .stream import StreamIterator
+from .stream import StreamIterator, RT, ST
 from .protocol import H2Protocol, AbstractHandler
 from .metadata import Request, Deadline, USER_AGENT, decode_grpc_message
 from .metadata import encode_metadata, decode_metadata
@@ -62,7 +64,7 @@ class Handler(AbstractHandler):
         self.connection_lost = True
 
 
-class Stream(StreamIterator):
+class Stream(StreamIterator[RT, ST]):
     """
     Represents gRPC method call - HTTP/2 request/stream, and everything you
     need to communicate with server in order to get response.
@@ -137,7 +139,7 @@ class Stream(StreamIterator):
             self._release_stream = release_stream
             self._send_request_done = True
 
-    async def send_message(self, message, *, end=False):
+    async def send_message(self, message: ST, *, end=False):
         """Coroutine to send message to the server.
 
         If client sends UNARY request, then you should call this coroutine only
@@ -274,7 +276,7 @@ class Stream(StreamIterator):
                 # StreamTerminatedError
                 raise
 
-    async def recv_message(self):
+    async def recv_message(self) -> RT:
         """Coroutine to receive incoming message from the server.
 
         If server sends UNARY response, then you can call this coroutine only
@@ -401,7 +403,7 @@ class Channel:
     _protocol = None
 
     def __init__(self, host=None, port=None, *, loop,  path=None, codec=None,
-                 ssl=None):
+                 ssl=None) -> None:
         """Initialize connection to the server
 
         :param host: server host name.
@@ -507,17 +509,17 @@ class Channel:
             self._protocol.processor.close()
 
 
-class ServiceMethod:
+class ServiceMethod(Generic[RT, ST]):
     """
     Base class for all gRPC method types
     """
-    def __init__(self, channel, name, request_type, reply_type):
+    def __init__(self, channel, name, request_type, reply_type) -> None:
         self.channel = channel
         self.name = name
         self.request_type = request_type
         self.reply_type = reply_type
 
-    def open(self, *, timeout=None, metadata=None) -> Stream:
+    def open(self, *, timeout=None, metadata=None) -> Stream[RT, ST]:
         """Creates and returns :py:class:`Stream` object to perform request
         to the server.
 
@@ -535,7 +537,7 @@ class ServiceMethod:
                                     metadata=metadata)
 
 
-class UnaryUnaryMethod(ServiceMethod):
+class UnaryUnaryMethod(ServiceMethod[RT, ST]):
     """
     Represents UNARY-UNARY gRPC method type.
 
@@ -543,7 +545,7 @@ class UnaryUnaryMethod(ServiceMethod):
     .. autocomethod:: open
         :async-with:
     """
-    async def __call__(self, message, *, timeout=None, metadata=None):
+    async def __call__(self, message: ST, *, timeout=None, metadata=None) -> RT:
         """Coroutine to perform defined call.
 
         :param message: message

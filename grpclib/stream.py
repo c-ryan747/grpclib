@@ -1,8 +1,16 @@
 import abc
 import struct
 
+from typing import TypeVar, Generic, Type
 
-async def recv_message(stream, codec, message_type):
+from .protocol import Stream
+
+
+RT = TypeVar('RT')
+ST = TypeVar('ST')
+
+
+async def recv_message(stream: Stream, codec, message_type: Type[RT]):
     meta = await stream.recv_data(5)
     if not meta:
         return
@@ -19,7 +27,8 @@ async def recv_message(stream, codec, message_type):
     return message
 
 
-async def send_message(stream, codec, message, message_type, *, end=False):
+async def send_message(stream, codec, message: ST, message_type: Type[ST], *,
+                       end=False):
     reply_bin = codec.encode(message, message_type)
     reply_data = (struct.pack('?', False)
                   + struct.pack('>I', len(reply_bin))
@@ -27,10 +36,10 @@ async def send_message(stream, codec, message, message_type, *, end=False):
     await stream.send_data(reply_data, end_stream=end)
 
 
-class StreamIterator(abc.ABC):
+class StreamIterator(Generic[RT, ST], metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
-    async def recv_message(self):
+    async def recv_message(self) -> RT:
         pass
 
     def __aiter__(self):

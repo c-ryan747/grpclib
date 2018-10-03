@@ -9,27 +9,27 @@ import grpclib.client
 import helloworld.helloworld_pb2
 
 
-class GreeterBase(abc.ABC):
-
-    @abc.abstractmethod
-    async def SayHello(self, stream):
-        pass
-
-    def __mapping__(self):
-        return {
-            '/helloworld.Greeter/SayHello': grpclib.const.Handler(
-                self.SayHello,
-                grpclib.const.Cardinality.UNARY_UNARY,
-                helloworld.helloworld_pb2.HelloRequest,
-                helloworld.helloworld_pb2.HelloReply,
-            ),
-        }
+# class GreeterBase(abc.ABC):
+#
+#     @abc.abstractmethod
+#     async def SayHello(self, stream):
+#         pass
+#
+#     def __mapping__(self):
+#         return {
+#             '/helloworld.Greeter/SayHello': grpclib.const.Handler(
+#                 self.SayHello,
+#                 grpclib.const.Cardinality.UNARY_UNARY,
+#                 helloworld.helloworld_pb2.HelloRequest,
+#                 helloworld.helloworld_pb2.HelloReply,
+#             ),
+#         }
 
 
 class GreeterStub:
 
     def __init__(self, channel: grpclib.client.Channel) -> None:
-        self.SayHello = grpclib.client.UnaryUnaryMethod(
+        self.SayHello: grpclib.client.UnaryUnaryMethod[helloworld.helloworld_pb2.HelloReply, helloworld.helloworld_pb2.HelloRequest] = grpclib.client.UnaryUnaryMethod(
             channel,
             '/helloworld.Greeter/SayHello',
             helloworld.helloworld_pb2.HelloRequest,
