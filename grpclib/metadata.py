@@ -1,8 +1,8 @@
 import re
 import time
 
+from typing import Any, Optional, Tuple, List, NamedTuple
 from base64 import b64encode, b64decode
-from collections import namedtuple
 from urllib.parse import quote, unquote
 
 from multidict import MultiDict
@@ -23,7 +23,7 @@ _UNITS = {
 _TIMEOUT_RE = re.compile(r'^(\d+)([{}])$'.format(''.join(_UNITS)))
 
 
-def decode_timeout(value):
+def decode_timeout(value: str) -> float:
     match = _TIMEOUT_RE.match(value)
     if match is None:
         raise ValueError('Invalid timeout: {}'.format(value))
@@ -44,36 +44,36 @@ def encode_timeout(timeout: float) -> str:
 
 class Deadline:
 
-    def __init__(self, *, _timestamp):
+    def __init__(self, *, _timestamp: float) -> None:
         self._timestamp = _timestamp
 
-    def __lt__(self, other):
+    def __lt__(self, other: Any) -> bool:
         if not isinstance(other, Deadline):
             raise TypeError('comparison is not supported between '
                             'instances of \'{}\' and \'{}\''
                             .format(type(self).__name__, type(other).__name__))
         return self._timestamp < other._timestamp
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if not isinstance(other, Deadline):
             return False
         return self._timestamp == other._timestamp
 
     @classmethod
-    def from_headers(cls, headers):
+    def from_headers(cls, headers: List[Tuple[str, str]]) -> Optional['Deadline']:
         timeout = min(map(decode_timeout,
                           (v for k, v in headers if k == 'grpc-timeout')),
-                      default=None)
-        if timeout is not None:
+                      default=-1)
+        if timeout >= 0:
             return cls.from_timeout(timeout)
         else:
             return None
 
     @classmethod
-    def from_timeout(cls, timeout):
+    def from_timeout(cls, timeout: float) -> Optional['Deadline']:
         return cls(_timestamp=time.monotonic() + timeout)
 
-    def time_remaining(self):
+    def time_remaining(self) -> float:
         return max(0, self._timestamp - time.monotonic())
 
 
@@ -81,18 +81,37 @@ class Metadata(MultiDict):
     pass
 
 
-class Request(namedtuple('Request', [
-    'method', 'scheme', 'path', 'authority',
-    'content_type', 'message_type', 'message_encoding',
-    'message_accept_encoding', 'user_agent',
-    'metadata', 'deadline',
+# class Request(NamedTuple):
+#     method: str
+#     scheme: str
+#     path: str
+#     authority: str
+#     content_type: str
+#     message_type: Optional[str]
+#     message_encoding: Optional[str]
+#     message_accept_encoding: Optional[str]
+#     user_agent: Optional[str]
+#     metadata: Optional[List[Tuple[str, str]]]
+#     deadline: Optional[Deadline]
+
+class Request(NamedTuple('Request', [
+    ('method', str),
+    ('scheme', str),
+    ('path', str),
+    ('authority', str),
+    ('content_type', str),
+    ('message_type', Optional[str]),
+    ('message_encoding', Optional[str]),
+    ('message_accept_encoding', Optional[str]),
+    ('user_agent', Optional[str]),
+    ('metadata', Optional[List[Tuple[str, str]]]),
+    ('deadline', Optional[Deadline]),
 ])):
-    __slots__ = tuple()
 
     def __new__(cls, *, method, scheme, path, authority,
                 content_type, message_type=None, message_encoding=None,
                 message_accept_encoding=None, user_agent=None,
-                metadata=None, deadline=None):
+                metadata=None, deadline=None) -> None:
         return super().__new__(cls, method, scheme, path, authority,
                                content_type, message_type, message_encoding,
                                message_accept_encoding, user_agent,

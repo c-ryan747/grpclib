@@ -1,6 +1,8 @@
 import enum
 import collections
 
+from typing import Dict
+
 
 @enum.unique
 class Status(enum.Enum):
@@ -39,3 +41,9 @@ class Cardinality(_Cardinality, enum.Enum):
 Handler = collections.namedtuple(
     'Handler', 'func, cardinality, request_type, reply_type',
 )
+
+
+class IService:
+
+    def __mapping__(self) -> Dict[str, Handler]:
+        pass

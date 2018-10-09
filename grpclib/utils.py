@@ -1,7 +1,12 @@
 import sys
 import asyncio
 
+from types import TracebackType
+from typing import Optional, Type
 from contextlib import contextmanager
+
+from .const import IService
+from .metadata import Deadline
 
 
 if sys.version_info > (3, 7):
@@ -32,7 +37,7 @@ class Wrapper:
 
     cancelled = None
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         if self._task is not None:
             raise RuntimeError('Concurrent call detected')
 
@@ -42,12 +47,17 @@ class Wrapper:
         self._task = _current_task()
         assert self._task is not None, 'Called not inside a task'
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType]
+    ) -> None:
         self._task = None
         if self._error is not None:
             raise self._error
 
-    def cancel(self, error):
+    def cancel(self, error: Exception) -> None:
         self._error = error
         if self._task is not None:
             self._task.cancel()
@@ -75,7 +85,7 @@ class DeadlineWrapper(Wrapper):
 
     """
     @contextmanager
-    def start(self, deadline, *, loop=None):
+    def start(self, deadline: Deadline, *, loop=None):
         loop = loop or asyncio.get_event_loop()
         timeout = deadline.time_remaining()
         if not timeout:
@@ -91,9 +101,11 @@ class DeadlineWrapper(Wrapper):
             timer.cancel()
 
 
-def _service_name(service):
+def _service_name(service: IService) -> str:
     methods = service.__mapping__()
-    method_name = next(iter(methods), None)
-    assert method_name is not None
-    _, service_name, _ = method_name.split('/')
-    return service_name
+    method_name: Optional[str] = next(iter(methods), None)
+    if method_name is None:
+        raise ValueError('No methods defined in the service')
+    else:
+        _, service_name, _ = method_name.split('/')
+        return service_name
