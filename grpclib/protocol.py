@@ -1,10 +1,11 @@
 import socket
+import struct
 
 from io import BytesIO
 from abc import ABC, abstractmethod
 from typing import Optional, List, Tuple, Dict  # noqa
 from asyncio import Transport, Protocol, Event, AbstractEventLoop
-from asyncio import Queue, QueueEmpty
+from asyncio import Queue, QueueEmpty, wait_for
 
 from h2.errors import ErrorCodes
 from h2.config import H2Configuration
@@ -154,6 +155,9 @@ class StreamsLimit:
         self._limit = value
 
 
+_MAX_PING = 2 ** 64 - 1
+
+
 class Connection:
     """
     Holds connection state (write_ready), and manages
@@ -169,6 +173,22 @@ class Connection:
         self.write_ready.set()
 
         self.stream_close_waiter = Event(loop=self._loop)
+
+        self._ping_id = 0
+        self.__ping_waiters__ = {}
+
+    async def ping(self, timeout):
+        if not self.write_ready.is_set():
+            await self.write_ready.wait()
+        self._ping_id = (self._ping_id + 1) & _MAX_PING
+        data = struct.pack('!Q', self._ping_id)
+        self._connection.ping(data)
+        self.flush()
+        fut = self.__ping_waiters__[data] = self._loop.create_future()
+        try:
+            await wait_for(fut, timeout=timeout, loop=self._loop)
+        finally:
+            self.__ping_waiters__.pop(data)
 
     def feed(self, data):
         return self._connection.receive_data(data)
@@ -483,7 +503,9 @@ class EventsProcessor:
         pass
 
     def process_ping_ack_received(self, event: PingAckReceived):
-        pass
+        fut = self.connection.__ping_waiters__.get(event.ping_data)
+        if fut and not fut.done():
+            fut.set_result(True)
 
 
 class H2Protocol(Protocol):
