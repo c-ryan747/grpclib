@@ -7,14 +7,6 @@
     reqs: !File "requirements.txt"
 
 - !Image
-  name: env35
-  from: !DockerImage python:3.5.1-slim
-  repository: localhost/grpclib/env35
-  tasks:
-  - run: pip3 install --no-cache-dir -r {{reqs}}
-    reqs: !File "requirements.txt"
-
-- !Image
   name: docs
   from: env36
   repository: localhost/grpclib/docs
@@ -50,13 +42,6 @@
 - !Command
   name: test36
   image: env36
-  run: py.test
-  environ:
-    PYTHONPATH: .
-
-- !Command
-  name: test35
-  image: env35
   run: py.test
   environ:
     PYTHONPATH: .

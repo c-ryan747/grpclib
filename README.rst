@@ -1,5 +1,5 @@
 This project is a pure-Python `gRPC`_ implementation, based on `hyper-h2`_
-project, **requires Python >= 3.5**.
+project, **requires Python >= 3.6**.
 
 Licensed under **BSD-3-Clause** license. See LICENSE.txt
 
